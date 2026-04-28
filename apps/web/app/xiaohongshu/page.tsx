@@ -215,11 +215,28 @@ export default function XiaohongshuPage() {
 
   const addSelectedToCandidate = () => {
     const toAdd = notes.filter((n) => selected.has(n.id));
-    setCandidates((prev) => {
-      const existingIds = new Set(prev.map((c) => c.id));
-      return [...prev, ...toAdd.filter((n) => !existingIds.has(n.id))];
-    });
+    const existingIds = new Set(candidates.map((c) => c.id));
+    const newOnes = toAdd.filter((n) => !existingIds.has(n.id));
+    if (newOnes.length === 0) { setSelected(new Set()); return; }
+    // Queue them all — each will go through toggleCandidate → modal → engage
+    // For batch, add directly and fire engage for each without modal
+    setCandidates((prev) => [...prev, ...newOnes]);
     setSelected(new Set());
+    newOnes.forEach((note) => {
+      setEngagingIds((prev) => new Set(prev).add(note.id));
+      fetch("/api/xiaohongshu/engage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          note_id: note.id,
+          xsec_token: note.xsec_token ?? "",
+          comment_text: commentTemplate,
+          cookies,
+        }),
+      }).finally(() => {
+        setEngagingIds((prev) => { const s = new Set(prev); s.delete(note.id); return s; });
+      });
+    });
   };
 
   return (
