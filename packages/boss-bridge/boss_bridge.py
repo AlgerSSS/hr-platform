@@ -144,14 +144,14 @@ def cmd_resume(encrypt_geek_id: str, encrypt_job_id: str) -> None:
             _err(str(e))
 
 
-def cmd_search(keyword: str, city: str = "上海", page: int = 1) -> None:
+def cmd_search(keyword: str, city: str = "上海", page: int = 1, enc_job_id: str = "") -> None:
     cred = get_credential()
     if not cred:
         _err("未登录，请先运行 boss login")
     with BossClient(credential=cred) as c:
         try:
             city_code = resolve_city(city)
-            raw = c.search_geeks(query=keyword, city=city_code, page=page)
+            raw = c.search_geeks(query=keyword, city=city_code, page=page, encrypt_job_id=enc_job_id)
             geek_list = raw.get("geekList", raw.get("list", []))
             candidates = [
                 {
@@ -166,6 +166,7 @@ def cmd_search(keyword: str, city: str = "上海", page: int = 1) -> None:
                     "activeTime": g.get("activeTimeDesc", ""),
                     "avatar": g.get("avatar", ""),
                     "skills": g.get("skills", []),
+                    "encryptJobId": enc_job_id,
                 }
                 for g in geek_list
             ]
@@ -192,6 +193,7 @@ def main() -> None:
     p_search.add_argument("keyword")
     p_search.add_argument("--city", default="上海")
     p_search.add_argument("--page", type=int, default=1)
+    p_search.add_argument("--job", default="")
 
     args = parser.parse_args()
 
@@ -202,7 +204,7 @@ def main() -> None:
     elif args.cmd == "resume":
         cmd_resume(encrypt_geek_id=args.geek_id, encrypt_job_id=args.job)
     elif args.cmd == "search":
-        cmd_search(keyword=args.keyword, city=args.city, page=args.page)
+        cmd_search(keyword=args.keyword, city=args.city, page=args.page, enc_job_id=args.job)
     else:
         parser.print_help()
         sys.exit(1)

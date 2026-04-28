@@ -24,17 +24,10 @@ from urllib.parse import urlencode, quote
 
 import httpx
 from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+# CORS not needed — this service is called server-side by Next.js API routes only
 app = FastAPI(title="XHS Bridge", version="1.0.0")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 # ---------------------------------------------------------------------------
 # Pydantic models
@@ -190,7 +183,14 @@ async def api_search(req: SearchRequest):
         data = await search_notes(
             req.query, req.page, req.page_size, req.sort, req.note_type, req.cookies
         )
+        import json as _json
+        print("[XHS /search raw]", _json.dumps(data, ensure_ascii=False)[:500])
+        # XHS returns business errors as {"code": -1, "msg": "..."} with HTTP 200
+        if data.get("code", 0) != 0:
+            raise HTTPException(status_code=401, detail=f"XHS error {data.get('code')}: {data.get('msg', '')}")
         return _normalize_search(data)
+    except HTTPException:
+        raise
     except httpx.HTTPStatusError as e:
         raise HTTPException(status_code=e.response.status_code, detail=str(e))
     except Exception as e:
