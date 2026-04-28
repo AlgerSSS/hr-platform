@@ -6,15 +6,18 @@ interface Props {
   candidate: Candidate;
   selected: boolean;
   jd: string;
+  score?: number;
+  scoreSummary?: string;
+  scoreColor?: string;
   onClick: () => void;
 }
 
-export default function CandidateCard({ candidate: c, selected, onClick }: Props) {
+export default function CandidateCard({ candidate: c, selected, score, scoreSummary, scoreColor, onClick }: Props) {
   return (
     <div
       onClick={onClick}
       style={{
-        background: selected ? "#fff" : "#fff",
+        background: "#fff",
         borderRadius: "12px",
         padding: "20px",
         cursor: "pointer",
@@ -42,16 +45,34 @@ export default function CandidateCard({ candidate: c, selected, onClick }: Props
             <span style={{ fontFamily: "'SF Pro Display', sans-serif", fontSize: "17px", fontWeight: 600, color: "#1d1d1f" }}>
               {c.name || "未知"}
             </span>
-            {c.activeTime && (
-              <span style={{ fontFamily: "'SF Pro Text', sans-serif", fontSize: "11px", color: "rgba(0,0,0,0.35)", letterSpacing: "-0.12px" }}>
-                {c.activeTime}
-              </span>
-            )}
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              {score !== undefined && (
+                <span style={{
+                  fontFamily: "'SF Pro Display', sans-serif", fontSize: "15px", fontWeight: 700,
+                  color: scoreColor ?? "#0071e3",
+                  background: `${scoreColor ?? "#0071e3"}15`,
+                  borderRadius: "6px", padding: "2px 8px",
+                }}>
+                  {score}分
+                </span>
+              )}
+              {c.activeTime && (
+                <span style={{ fontFamily: "'SF Pro Text', sans-serif", fontSize: "11px", color: "rgba(0,0,0,0.35)", letterSpacing: "-0.12px" }}>
+                  {c.activeTime}
+                </span>
+              )}
+            </div>
           </div>
 
           <div style={{ fontFamily: "'SF Pro Text', sans-serif", fontSize: "13px", color: "rgba(0,0,0,0.55)", marginBottom: "8px", letterSpacing: "-0.224px" }}>
             {[c.expectPosition, c.experience, c.degree].filter(Boolean).join(" · ")}
           </div>
+
+          {scoreSummary && (
+            <div style={{ fontFamily: "'SF Pro Text', sans-serif", fontSize: "12px", color: "rgba(0,0,0,0.5)", marginBottom: "8px", fontStyle: "italic" }}>
+              {scoreSummary}
+            </div>
+          )}
 
           <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
             {c.expectSalary && (

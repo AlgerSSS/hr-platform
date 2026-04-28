@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Candidate } from "@/app/boss/candidates/page";
+import { Candidate, MatchResult } from "@/app/boss/candidates/page";
 
 interface Resume {
   encryptGeekId: string;
@@ -24,33 +24,29 @@ interface Resume {
   projectExperiences: { name: string; role: string; startDate: string; endDate: string; description: string }[];
 }
 
-interface MatchResult {
-  score: number;
-  summary: string;
-  strengths: string[];
-  risks: string[];
-  greeting: string;
-}
-
 interface Props {
   candidate: Candidate;
   jd: string;
+  initialMatch?: MatchResult;
+  onMatchResult?: (result: MatchResult) => void;
 }
 
-export default function ResumePanel({ candidate, jd }: Props) {
+export default function ResumePanel({ candidate, jd, initialMatch, onMatchResult }: Props) {
   const [resume, setResume] = useState<Resume | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [match, setMatch] = useState<MatchResult | null>(null);
+  const [match, setMatch] = useState<MatchResult | null>(initialMatch ?? null);
   const [matching, setMatching] = useState(false);
-  const [tab, setTab] = useState<"resume" | "match">("resume");
+  const [tab, setTab] = useState<"resume" | "match">(initialMatch ? "match" : "resume");
 
+  // When switching to a different candidate, reset resume but keep match if initialMatch provided
   useEffect(() => {
     setResume(null);
-    setMatch(null);
     setLoading(true);
     setError("");
-    setTab("resume");
+    const newMatch = initialMatch ?? null;
+    setMatch(newMatch);
+    setTab(newMatch ? "match" : "resume");
 
     fetch(`/api/boss/resume?geekId=${candidate.encryptGeekId}&jobId=${candidate.encryptJobId}`)
       .then((r) => r.json())
@@ -60,7 +56,15 @@ export default function ResumePanel({ candidate, jd }: Props) {
       })
       .catch(() => setError("网络请求失败"))
       .finally(() => setLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [candidate.encryptGeekId, candidate.encryptJobId]);
+
+  // Sync if parent updates initialMatch (e.g. batch match completes while panel is open)
+  useEffect(() => {
+    if (initialMatch && !match) {
+      setMatch(initialMatch);
+    }
+  }, [initialMatch, match]);
 
   const runMatch = async () => {
     if (!resume || !jd) return;
@@ -73,7 +77,10 @@ export default function ResumePanel({ candidate, jd }: Props) {
         body: JSON.stringify({ jd, resume }),
       });
       const data = await res.json();
-      if (data.ok) setMatch(data.data);
+      if (data.ok) {
+        setMatch(data.data);
+        onMatchResult?.(data.data);
+      }
     } finally {
       setMatching(false);
     }

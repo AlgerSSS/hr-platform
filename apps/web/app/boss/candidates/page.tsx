@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import Nav from "@/components/shared/Nav";
 import CandidateCard from "@/components/boss/CandidateCard";
 import ResumePanel from "@/components/boss/ResumePanel";
@@ -23,6 +23,14 @@ export interface Candidate {
   skills: string[];
   encryptJobId: string;
   friendId: string;
+}
+
+export interface MatchResult {
+  score: number;
+  summary: string;
+  strengths: string[];
+  risks: string[];
+  greeting: string;
 }
 
 interface Job {
@@ -51,15 +59,23 @@ export default function CandidatesPage() {
   const [jd, setJd] = useState("");
   const [showJd, setShowJd] = useState(false);
 
+  // Per-candidate match results — keyed by encryptGeekId, persists across selections
+  const [matchScores, setMatchScores] = useState<Record<string, MatchResult>>({});
+  const [matchingAll, setMatchingAll] = useState(false);
+  const [matchProgress, setMatchProgress] = useState({ done: 0, total: 0 });
+
   // Load jobs on mount
   useEffect(() => {
     fetch("/api/boss/jobs")
       .then((r) => r.json())
-      .then((data) => {
-        if (data.ok) setJobs(data.data ?? []);
-      })
+      .then((data) => { if (data.ok) setJobs(data.data ?? []); })
       .finally(() => setJobsLoading(false));
   }, []);
+
+  // Reset scores when candidates list changes
+  useEffect(() => {
+    setMatchScores({});
+  }, [candidates]);
 
   const doSearch = useCallback(async () => {
     if (!keyword.trim()) return;
@@ -84,6 +100,55 @@ export default function CandidatesPage() {
       setLoading(false);
     }
   }, [keyword, city, selectedJob]);
+
+  // Batch AI match all candidates sequentially
+  const runBatchMatch = useCallback(async () => {
+    if (!jd || candidates.length === 0 || matchingAll) return;
+    setMatchingAll(true);
+    setMatchProgress({ done: 0, total: candidates.length });
+
+    for (const c of candidates) {
+      // Skip already matched
+      if (matchScores[c.encryptGeekId]) {
+        setMatchProgress((p) => ({ ...p, done: p.done + 1 }));
+        continue;
+      }
+      try {
+        const resumeRes = await fetch(
+          `/api/boss/resume?geekId=${c.encryptGeekId}&jobId=${c.encryptJobId}`
+        );
+        const resumeData = await resumeRes.json();
+        if (!resumeData.ok) { setMatchProgress((p) => ({ ...p, done: p.done + 1 })); continue; }
+
+        const matchRes = await fetch("/api/boss/match", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ jd, resume: resumeData.data }),
+        });
+        const matchData = await matchRes.json();
+        if (matchData.ok) {
+          setMatchScores((prev) => ({ ...prev, [c.encryptGeekId]: matchData.data }));
+        }
+      } catch {
+        // skip failed candidate
+      }
+      setMatchProgress((p) => ({ ...p, done: p.done + 1 }));
+    }
+    setMatchingAll(false);
+  }, [jd, candidates, matchingAll, matchScores]);
+
+  // Sort by score descending when scores available
+  const sortedCandidates = useMemo(() => {
+    const hasScores = Object.keys(matchScores).length > 0;
+    if (!hasScores) return candidates;
+    return [...candidates].sort((a, b) => {
+      const sa = matchScores[a.encryptGeekId]?.score ?? -1;
+      const sb = matchScores[b.encryptGeekId]?.score ?? -1;
+      return sb - sa;
+    });
+  }, [candidates, matchScores]);
+
+  const scoreColor = (s: number) => s >= 80 ? "#34c759" : s >= 60 ? "#ff9f0a" : "#ff3b30";
 
   return (
     <main style={{ background: "#f5f5f7", minHeight: "100vh" }}>
@@ -191,10 +256,41 @@ export default function CandidatesPage() {
             </button>
           </div>
 
-          {jd && (
-            <p style={{ marginTop: "10px", fontSize: "12px", color: "rgba(0,0,0,0.4)", fontFamily: "'SF Pro Text', sans-serif" }}>
-              JD 已配置 · 点击候选人后可进行 AI 匹配分析
-            </p>
+          {/* Batch match bar */}
+          {jd && candidates.length > 0 && (
+            <div style={{ marginTop: "14px", display: "flex", alignItems: "center", gap: "12px" }}>
+              <button
+                onClick={runBatchMatch}
+                disabled={matchingAll}
+                style={{
+                  background: matchingAll ? "#f5f5f7" : "#000",
+                  color: matchingAll ? "rgba(0,0,0,0.4)" : "#fff",
+                  border: "none", borderRadius: "10px", padding: "9px 18px",
+                  fontSize: "13px", fontFamily: "'SF Pro Text', sans-serif",
+                  cursor: matchingAll ? "not-allowed" : "pointer", whiteSpace: "nowrap",
+                }}
+              >
+                {matchingAll
+                  ? `AI 匹配中 ${matchProgress.done}/${matchProgress.total}...`
+                  : Object.keys(matchScores).length > 0
+                    ? `重新匹配全部 (${candidates.length}人)`
+                    : `一键 AI 匹配全部 (${candidates.length}人)`}
+              </button>
+              {Object.keys(matchScores).length > 0 && !matchingAll && (
+                <span style={{ fontSize: "12px", color: "rgba(0,0,0,0.4)", fontFamily: "'SF Pro Text', sans-serif" }}>
+                  已完成 {Object.keys(matchScores).length}/{candidates.length} · 按匹配度排序
+                </span>
+              )}
+              {matchingAll && (
+                <div style={{ flex: 1, maxWidth: "200px", height: "4px", background: "#e8e8ed", borderRadius: "2px", overflow: "hidden" }}>
+                  <div style={{
+                    height: "100%",
+                    width: `${matchProgress.total > 0 ? (matchProgress.done / matchProgress.total) * 100 : 0}%`,
+                    background: "#0071e3", borderRadius: "2px", transition: "width 0.3s ease",
+                  }} />
+                </div>
+              )}
+            </div>
           )}
         </div>
 
@@ -235,18 +331,22 @@ export default function CandidatesPage() {
               </div>
             )}
 
-            {candidates.length > 0 && (
+            {sortedCandidates.length > 0 && (
               <div>
                 <p style={{ fontFamily: "'SF Pro Text', sans-serif", fontSize: "13px", color: "rgba(0,0,0,0.4)", marginBottom: "12px" }}>
-                  找到 {candidates.length} 位候选人 · 点击查看简历详情{jd ? "及 AI 匹配" : ""}
+                  {sortedCandidates.length} 位候选人
+                  {Object.keys(matchScores).length > 0 ? " · 按 AI 匹配度排序" : jd ? " · 点击查看简历及 AI 匹配" : " · 点击查看简历详情"}
                 </p>
                 <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                  {candidates.map((c) => (
+                  {sortedCandidates.map((c) => (
                     <CandidateCard
                       key={c.encryptGeekId}
                       candidate={c}
                       selected={selected?.encryptGeekId === c.encryptGeekId}
                       jd={jd}
+                      score={matchScores[c.encryptGeekId]?.score}
+                      scoreSummary={matchScores[c.encryptGeekId]?.summary}
+                      scoreColor={matchScores[c.encryptGeekId] ? scoreColor(matchScores[c.encryptGeekId].score) : undefined}
                       onClick={() => setSelected(selected?.encryptGeekId === c.encryptGeekId ? null : c)}
                     />
                   ))}
@@ -256,7 +356,14 @@ export default function CandidatesPage() {
           </div>
 
           {/* Right: resume + AI match */}
-          {selected && <ResumePanel candidate={selected} jd={jd} />}
+          {selected && (
+            <ResumePanel
+              candidate={selected}
+              jd={jd}
+              initialMatch={matchScores[selected.encryptGeekId]}
+              onMatchResult={(result) => setMatchScores((prev) => ({ ...prev, [selected.encryptGeekId]: result }))}
+            />
+          )}
         </div>
       </div>
 
