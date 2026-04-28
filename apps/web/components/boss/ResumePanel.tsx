@@ -18,9 +18,10 @@ interface Resume {
   expectSalary: string;
   expectCity: string;
   selfEvaluation: string;
+  professionalSkill: string;
   skills: string[];
   workExperiences: { company: string; position: string; startDate: string; endDate: string; description: string }[];
-  educationExperiences: { school: string; major: string; degree: string; startDate: string; endDate: string }[];
+  educationExperiences: { school: string; major: string; degree: string; startDate: string; endDate: string; description: string }[];
   projectExperiences: { name: string; role: string; startDate: string; endDate: string; description: string }[];
 }
 
@@ -156,15 +157,22 @@ export default function ResumePanel({ candidate, jd }: Props) {
             </div>
 
             {/* Skills */}
-            {resume.skills?.length > 0 && (
+            {(resume.skills?.length > 0 || resume.professionalSkill) && (
               <Section title="技能">
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                  {resume.skills.map((s, i) => (
-                    <span key={i} style={{ background: "#f0f7ff", color: "#0071e3", borderRadius: "6px", padding: "3px 10px", fontSize: "12px", fontFamily: "'SF Pro Text', sans-serif" }}>
-                      {s}
-                    </span>
-                  ))}
-                </div>
+                {resume.skills?.length > 0 && (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: resume.professionalSkill ? "8px" : 0 }}>
+                    {resume.skills.map((s, i) => (
+                      <span key={i} style={{ background: "#f0f7ff", color: "#0071e3", borderRadius: "6px", padding: "3px 10px", fontSize: "12px", fontFamily: "'SF Pro Text', sans-serif" }}>
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {resume.professionalSkill && (
+                  <p style={{ fontFamily: "'SF Pro Text', sans-serif", fontSize: "13px", color: "rgba(0,0,0,0.6)", lineHeight: 1.6, margin: 0 }}>
+                    {resume.professionalSkill}
+                  </p>
+                )}
               </Section>
             )}
 
@@ -201,12 +209,19 @@ export default function ResumePanel({ candidate, jd }: Props) {
             {resume.educationExperiences?.length > 0 && (
               <Section title="教育经历">
                 {resume.educationExperiences.map((e, i) => (
-                  <div key={i} style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
-                    <div>
-                      <span style={{ fontFamily: "'SF Pro Display', sans-serif", fontSize: "15px", fontWeight: 600, color: "#1d1d1f" }}>{e.school}</span>
-                      <span style={{ fontFamily: "'SF Pro Text', sans-serif", fontSize: "13px", color: "rgba(0,0,0,0.55)", marginLeft: "8px" }}>{e.major} · {e.degree}</span>
+                  <div key={i} style={{ marginBottom: i < resume.educationExperiences.length - 1 ? "16px" : 0 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <div>
+                        <span style={{ fontFamily: "'SF Pro Display', sans-serif", fontSize: "15px", fontWeight: 600, color: "#1d1d1f" }}>{e.school}</span>
+                        <span style={{ fontFamily: "'SF Pro Text', sans-serif", fontSize: "13px", color: "rgba(0,0,0,0.55)", marginLeft: "8px" }}>{e.major} · {e.degree}</span>
+                      </div>
+                      <span style={{ fontFamily: "'SF Pro Text', sans-serif", fontSize: "12px", color: "rgba(0,0,0,0.4)" }}>{e.startDate} ~ {e.endDate}</span>
                     </div>
-                    <span style={{ fontFamily: "'SF Pro Text', sans-serif", fontSize: "12px", color: "rgba(0,0,0,0.4)" }}>{e.startDate} ~ {e.endDate}</span>
+                    {e.description && (
+                      <p style={{ fontFamily: "'SF Pro Text', sans-serif", fontSize: "13px", color: "rgba(0,0,0,0.6)", lineHeight: 1.6, marginTop: "6px" }}>
+                        {e.description}
+                      </p>
+                    )}
                   </div>
                 ))}
               </Section>

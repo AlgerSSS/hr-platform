@@ -111,11 +111,16 @@ def cmd_resume(encrypt_geek_id: str, encrypt_job_id: str, security_id: str = "")
             )
             gdi = raw.get("geekDetailInfo", {})
             base = gdi.get("geekBaseInfo", {})
-            expect = gdi.get("anonymousGeekExpect", {}) or {}
+            # anonymousGeekExpect may be null; fall back to geekExpPosList
+            expect = gdi.get("anonymousGeekExpect") or {}
+            exp_pos_list = gdi.get("geekExpPosList") or []
+            exp_pos = exp_pos_list[0] if exp_pos_list else {}
             work_list = gdi.get("geekWorkExpList", []) or []
             edu_list = gdi.get("geekEduExpList", []) or []
             proj_list = gdi.get("geekProjExpList", []) or []
-            skills_raw = gdi.get("blueGeekSkills", []) or []
+            # blueGeekSkills may be null; also check professionalSkill string
+            skills_raw = gdi.get("blueGeekSkills") or []
+            prof_skill = gdi.get("professionalSkill") or ""
 
             resume = {
                 "encryptGeekId": encrypt_geek_id,
@@ -124,42 +129,44 @@ def cmd_resume(encrypt_geek_id: str, encrypt_job_id: str, security_id: str = "")
                 "gender": "男" if base.get("gender") == 0 else "女",
                 "degree": base.get("degreeCategory", ""),
                 "experience": base.get("workYearsDesc", base.get("workYearDesc", "")),
-                "city": expect.get("cityName", ""),
+                "city": expect.get("cityName", "") or exp_pos.get("locationName", ""),
                 "avatar": base.get("large", base.get("tiny", "")),
                 "activeTime": base.get("activeTimeDesc", ""),
                 "jobStatus": base.get("applyStatusDesc", base.get("applyStatusContent", "")),
-                "expectPosition": expect.get("positionName", ""),
-                "expectSalary": expect.get("salaryDesc", ""),
-                "expectCity": expect.get("cityName", ""),
+                "expectPosition": expect.get("positionName", "") or exp_pos.get("positionName", ""),
+                "expectSalary": expect.get("salaryDesc", "") or exp_pos.get("salaryDesc", ""),
+                "expectCity": expect.get("cityName", "") or exp_pos.get("locationName", ""),
                 "selfEvaluation": base.get("userDescription", ""),
+                "professionalSkill": prof_skill,
                 "skills": [s.get("name", "") for s in skills_raw if s.get("name")],
                 "workExperiences": [
                     {
-                        "company": w.get("brandName", w.get("companyName", "")),
-                        "position": w.get("positionName", w.get("jobName", "")),
-                        "startDate": w.get("startDate", ""),
-                        "endDate": w.get("endDate", "至今"),
-                        "description": w.get("jobContent", w.get("description", "")),
+                        "company": w.get("company", ""),
+                        "position": w.get("positionName", ""),
+                        "startDate": w.get("startYearMonStr", w.get("startDate", "")),
+                        "endDate": w.get("endYearMonStr", w.get("endDate", "至今")),
+                        "description": w.get("responsibility", ""),
                     }
                     for w in work_list
                 ],
                 "educationExperiences": [
                     {
-                        "school": e.get("schoolName", ""),
-                        "major": e.get("major", e.get("majorName", "")),
-                        "degree": e.get("degreeName", e.get("degreeCategory", "")),
-                        "startDate": e.get("startDate", ""),
-                        "endDate": e.get("endDate", ""),
+                        "school": e.get("school", ""),
+                        "major": e.get("major", ""),
+                        "degree": e.get("degreeName", ""),
+                        "startDate": e.get("startDateDesc", e.get("startDate", "")),
+                        "endDate": e.get("endDateDesc", e.get("endDate", "")),
+                        "description": e.get("eduDescription", ""),
                     }
                     for e in edu_list
                 ],
                 "projectExperiences": [
                     {
-                        "name": p.get("projectName", ""),
-                        "role": p.get("projectRole", ""),
-                        "startDate": p.get("startDate", ""),
-                        "endDate": p.get("endDate", ""),
-                        "description": p.get("projectDesc", p.get("description", "")),
+                        "name": p.get("name", ""),
+                        "role": p.get("roleName", ""),
+                        "startDate": p.get("startYearMonStr", p.get("startDate", "")),
+                        "endDate": p.get("endYearMonStr", p.get("endDate", "")),
+                        "description": p.get("projectDescription", ""),
                     }
                     for p in proj_list
                 ],
