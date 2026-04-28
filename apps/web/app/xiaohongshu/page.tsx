@@ -73,11 +73,15 @@ export default function XiaohongshuPage() {
       const res = await fetch("/api/xiaohongshu/search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: query.trim(), page: p, sort, note_type: noteType, cookies }),
+        body: JSON.stringify({ query: query.trim(), page: p, sort_type: ["general","time_descending","popularity_descending"].indexOf(sort), note_type: noteType, cookies }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "搜索失败");
-      setNotes((prev) => resetPage ? data.notes : [...prev, ...data.notes]);
+      setNotes((prev) => {
+        if (resetPage) return data.notes;
+        const existingIds = new Set(prev.map((n: XhsNote) => n.id));
+        return [...prev, ...data.notes.filter((n: XhsNote) => !existingIds.has(n.id))];
+      });
       setHasMore(data.has_more);
       if (!resetPage) setPage(p + 1);
     } catch (e: unknown) {
@@ -92,10 +96,12 @@ export default function XiaohongshuPage() {
     setNoteDetail(null);
     setDetailLoading(true);
     try {
+      // Build full XHS URL with xsec_token so Spider_XHS can sign correctly
+      const noteUrl = `https://www.xiaohongshu.com/explore/${note.id}?xsec_token=${note.xsec_token ?? ""}&xsec_source=pc_search`;
       const res = await fetch("/api/xiaohongshu/note", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ note_id: note.id, cookies }),
+        body: JSON.stringify({ note_url: noteUrl, cookies }),
       });
       if (res.ok) setNoteDetail(await res.json());
     } finally {
@@ -388,9 +394,9 @@ export default function XiaohongshuPage() {
             gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
             gap: "16px",
           }}>
-            {notes.map((note) => (
+            {notes.map((note, idx) => (
               <NoteCard
-                key={note.id}
+                key={`${note.id}-${idx}`}
                 note={note}
                 selected={selected.has(note.id)}
                 onSelect={toggleSelect}

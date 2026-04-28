@@ -16,6 +16,7 @@ export interface XhsNote {
   comment_count: string;
   type: string;
   created_at: number;
+  xsec_token?: string;
 }
 
 export interface XhsNoteDetail extends XhsNote {
