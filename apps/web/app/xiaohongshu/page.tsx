@@ -7,7 +7,10 @@ import NoteCard from "@/components/xiaohongshu/NoteCard";
 import NoteDetail from "@/components/xiaohongshu/NoteDetail";
 import UserProfile from "@/components/xiaohongshu/UserProfile";
 import CookieModal from "@/components/xiaohongshu/CookieModal";
+import CommentTemplateModal from "@/components/xiaohongshu/CommentTemplateModal";
 import { XhsNote, XhsNoteDetail, XhsUser } from "@/components/xiaohongshu/types";
+
+const DEFAULT_COMMENT = "你好，我是HR，看到你的帖子很感兴趣，方便聊聊吗？";
 
 const SORT_OPTIONS = [
   { value: "general", label: "综合" },
@@ -47,6 +50,11 @@ export default function XiaohongshuPage() {
   // Candidates
   const [candidates, setCandidates] = useState<XhsNote[]>([]);
   const [showCandidates, setShowCandidates] = useState(false);
+
+  // Engage (comment + collect) flow
+  const [commentTemplate, setCommentTemplate] = useState(DEFAULT_COMMENT);
+  const [pendingCandidate, setPendingCandidate] = useState<XhsNote | null>(null);
+  const [engagingIds, setEngagingIds] = useState<Set<string>>(new Set());
 
   // Load cookies from localStorage
   useEffect(() => {
@@ -130,10 +138,37 @@ export default function XiaohongshuPage() {
     }
   };
 
+  // Show comment template modal before adding candidate
   const toggleCandidate = (note: XhsNote) => {
-    setCandidates((prev) =>
-      prev.find((c) => c.id === note.id) ? prev.filter((c) => c.id !== note.id) : [...prev, note]
-    );
+    if (candidates.find((c) => c.id === note.id)) {
+      setCandidates((prev) => prev.filter((c) => c.id !== note.id));
+      return;
+    }
+    setPendingCandidate(note);
+  };
+
+  const confirmAddCandidate = async (commentText: string) => {
+    if (!pendingCandidate) return;
+    const note = pendingCandidate;
+    setPendingCandidate(null);
+    setCandidates((prev) => [...prev, note]);
+
+    // Fire-and-forget engage (collect + comment)
+    setEngagingIds((prev) => new Set(prev).add(note.id));
+    try {
+      await fetch("/api/xiaohongshu/engage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          note_id: note.id,
+          xsec_token: note.xsec_token ?? "",
+          comment_text: commentText,
+          cookies,
+        }),
+      });
+    } finally {
+      setEngagingIds((prev) => { const s = new Set(prev); s.delete(note.id); return s; });
+    }
   };
 
   const addUserAsCandidate = (user: XhsUser) => {
@@ -395,13 +430,24 @@ export default function XiaohongshuPage() {
             gap: "16px",
           }}>
             {notes.map((note, idx) => (
-              <NoteCard
-                key={`${note.id}-${idx}`}
-                note={note}
-                selected={selected.has(note.id)}
-                onSelect={toggleSelect}
-                onClick={openNote}
-              />
+              <div key={`${note.id}-${idx}`} style={{ position: "relative" }}>
+                <NoteCard
+                  note={note}
+                  selected={selected.has(note.id)}
+                  onSelect={toggleSelect}
+                  onClick={openNote}
+                />
+                {engagingIds.has(note.id) && (
+                  <div style={{
+                    position: "absolute", inset: 0, borderRadius: "12px",
+                    background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center",
+                    justifyContent: "center", fontSize: "12px", color: "#fff",
+                    fontFamily: "'SF Pro Text', sans-serif",
+                  }}>
+                    ⭐ 收藏+评论中…
+                  </div>
+                )}
+              </div>
             ))}
           </div>
 
@@ -447,6 +493,14 @@ export default function XiaohongshuPage() {
       {/* Modals */}
       {showCookieModal && (
         <CookieModal onSave={saveCookies} onClose={() => setShowCookieModal(false)} />
+      )}
+
+      {pendingCandidate && (
+        <CommentTemplateModal
+          defaultText={commentTemplate}
+          onConfirm={(text) => { setCommentTemplate(text); confirmAddCandidate(text); }}
+          onCancel={() => setPendingCandidate(null)}
+        />
       )}
 
       {activeNote && (

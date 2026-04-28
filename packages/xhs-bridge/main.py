@@ -20,7 +20,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "spider_xhs", "xhs_ut
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+import requests
 from xhs_pc_apis import XHS_Apis
+from xhs_util import generate_request_params, generate_x_rap_param
 
 app = FastAPI(title="XHS Bridge", version="2.0.0")
 xhs = XHS_Apis()
@@ -49,6 +51,13 @@ class UserRequest(BaseModel):
 
 class UserNotesRequest(BaseModel):
     user_url: str        # full XHS user URL with xsec_token
+    cookies: str
+
+
+class EngageRequest(BaseModel):
+    note_id: str
+    xsec_token: str = ""
+    comment_text: str = ""
     cookies: str
 
 
@@ -106,6 +115,46 @@ def api_comments(req: NoteRequest):
     if not success:
         raise HTTPException(status_code=400, detail=msg)
     return {"comments": comments}
+
+
+BASE_URL = "https://edith.xiaohongshu.com"
+
+
+@app.post("/note/engage")
+def api_engage(req: EngageRequest):
+    """Collect (star) a note and optionally post a comment. Called when adding a candidate."""
+    results = {}
+
+    # 1. Collect / star the note
+    try:
+        api = "/api/sns/web/v1/note/collect"
+        data = {"note_id": req.note_id}
+        headers, cookies, body = generate_request_params(req.cookies, api, data, "POST")
+        resp = requests.post(BASE_URL + api, headers=headers, data=body.encode("utf-8"), cookies=cookies, timeout=15)
+        rj = resp.json()
+        results["collect"] = {"success": rj.get("success", False), "msg": rj.get("msg", "")}
+    except Exception as e:
+        results["collect"] = {"success": False, "msg": str(e)}
+
+    # 2. Post comment (only if comment_text provided)
+    if req.comment_text.strip():
+        try:
+            api = "/api/sns/web/v1/comment/post"
+            data = {
+                "note_id": req.note_id,
+                "content": req.comment_text,
+                "at_users": [],
+            }
+            headers, cookies, body = generate_request_params(req.cookies, api, data, "POST")
+            resp = requests.post(BASE_URL + api, headers=headers, data=body.encode("utf-8"), cookies=cookies, timeout=15)
+            rj = resp.json()
+            results["comment"] = {"success": rj.get("success", False), "msg": rj.get("msg", "")}
+        except Exception as e:
+            results["comment"] = {"success": False, "msg": str(e)}
+    else:
+        results["comment"] = {"success": True, "msg": "skipped"}
+
+    return results
 
 
 # ---------------------------------------------------------------------------
