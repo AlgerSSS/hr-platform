@@ -57,7 +57,7 @@ ${resume.educationExperiences?.map((e: { school: string; major: string; degree: 
         "X-Title": "HR Platform",
       },
       body: JSON.stringify({
-        model: "openai/gpt-4.5",
+        model: "openai/gpt-5.5",
         messages: [{ role: "user", content: prompt }],
         response_format: { type: "json_object" },
         temperature: 0.3,
