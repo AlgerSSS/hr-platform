@@ -1,0 +1,101 @@
+@import "tailwindcss";
+
+:root {
+  /* Apple Design System — from DESIGN.md */
+  --sk-focus-color: #0071e3;
+  --sk-body-link-color: #0066cc;
+  --sk-body-link-color-dark: #2997ff;
+
+  --color-black: #000000;
+  --color-near-black: #1d1d1f;
+  --color-light-gray: #f5f5f7;
+  --color-apple-blue: #0071e3;
+  --color-link-blue: #0066cc;
+  --color-bright-blue: #2997ff;
+
+  --color-dark-surface-1: #272729;
+  --color-dark-surface-2: #262628;
+  --color-dark-surface-3: #28282a;
+
+  --shadow-card: rgba(0, 0, 0, 0.22) 3px 5px 30px 0px;
+
+  --background: #ffffff;
+  --foreground: #1d1d1f;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: "SF Pro Text", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: "SF Pro Display", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+/* Apple pill CTA */
+.btn-pill {
+  border-radius: 980px;
+  padding: 8px 18px;
+  font-size: 14px;
+  font-family: "SF Pro Text", sans-serif;
+  font-weight: 400;
+  letter-spacing: -0.224px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: opacity 0.2s;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.btn-pill:hover {
+  opacity: 0.85;
+}
+
+.btn-pill-outline-white {
+  border: 1px solid rgba(255,255,255,0.6);
+  color: #ffffff;
+  background: transparent;
+}
+
+.btn-pill-outline-blue {
+  border: 1px solid #0066cc;
+  color: #0066cc;
+  background: transparent;
+}
+
+.btn-primary {
+  background: #0071e3;
+  color: #ffffff;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 8px 15px;
+  font-size: 17px;
+  font-family: "SF Pro Text", sans-serif;
+  font-weight: 400;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-primary:hover {
+  background: #0077ed;
+}
+
+/* Nav glass */
+.nav-glass {
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+}
