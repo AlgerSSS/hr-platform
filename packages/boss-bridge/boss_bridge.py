@@ -55,14 +55,29 @@ def cmd_candidates(enc_job_id: str = "", page: int = 1) -> None:
         _err("未登录，请先运行 boss login")
     with BossClient(credential=cred) as c:
         try:
-            raw = c.get_boss_friend_list(enc_job_id=enc_job_id, page=page)
+            # Use recommend list (greet rec sort) — returns active candidates
+            raw = c.get_boss_greet_rec_list(enc_job_id=enc_job_id, page=page)
             items = raw.get("friendList", raw.get("list", []))
+
+            # Fallback to friend list if recommend is empty
+            if not items:
+                raw = c.get_boss_friend_list(enc_job_id=enc_job_id, page=page)
+                items = raw.get("friendList", raw.get("list", []))
+
             candidates = []
             for item in items:
                 geek = item.get("geekInfo", item)
+                enc_geek_id = (
+                    geek.get("encryptGeekId")
+                    or item.get("encryptUid")
+                    or item.get("encryptGeekId", "")
+                )
+                enc_job = item.get("encryptJobId", enc_job_id)
+                if not enc_geek_id:
+                    continue
                 candidates.append({
-                    "encryptGeekId": geek.get("encryptGeekId", ""),
-                    "name": geek.get("name", ""),
+                    "encryptGeekId": enc_geek_id,
+                    "name": geek.get("name") or item.get("name", ""),
                     "age": geek.get("age", ""),
                     "gender": geek.get("gender", ""),
                     "degree": geek.get("degreeName", geek.get("degree", "")),
@@ -70,11 +85,12 @@ def cmd_candidates(enc_job_id: str = "", page: int = 1) -> None:
                     "expectPosition": geek.get("expectPosition", ""),
                     "expectSalary": geek.get("expectSalaryDesc", geek.get("expectSalary", "")),
                     "city": geek.get("cityName", geek.get("city", "")),
-                    "activeTime": geek.get("activeTimeDesc", ""),
-                    "avatar": geek.get("avatar", ""),
+                    "activeTime": geek.get("activeTimeDesc", item.get("lastTime", "")),
+                    "avatar": geek.get("avatar") or item.get("avatar", ""),
                     "jobStatus": geek.get("jobStatusDesc", ""),
+                    "jobName": item.get("jobName", ""),
                     "friendId": item.get("friendId", ""),
-                    "encryptJobId": item.get("encryptJobId", enc_job_id),
+                    "encryptJobId": enc_job,
                 })
             _out({"ok": True, "data": candidates, "total": len(candidates)})
         except BossApiError as e:
