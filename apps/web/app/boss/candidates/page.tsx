@@ -24,6 +24,7 @@ export interface Candidate {
   skills: string[];
   encryptJobId: string;
   friendId: string;
+  securityId: string;
 }
 
 interface Job {

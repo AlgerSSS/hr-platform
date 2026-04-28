@@ -52,7 +52,7 @@ export default function ResumePanel({ candidate, jd }: Props) {
     setError("");
     setTab("resume");
 
-    fetch(`/api/boss/resume?geekId=${candidate.encryptGeekId}&jobId=${candidate.encryptJobId}`)
+    fetch(`/api/boss/resume?geekId=${candidate.encryptGeekId}&jobId=${candidate.encryptJobId}&securityId=${encodeURIComponent(candidate.securityId ?? "")}`)
       .then((r) => r.json())
       .then((data) => {
         if (data.ok) setResume(data.data);

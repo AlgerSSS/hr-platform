@@ -91,13 +91,14 @@ def cmd_candidates(enc_job_id: str = "", page: int = 1) -> None:
                     "jobName": item.get("jobName", ""),
                     "friendId": item.get("friendId", ""),
                     "encryptJobId": enc_job,
+                    "securityId": item.get("securityId", ""),
                 })
             _out({"ok": True, "data": candidates, "total": len(candidates)})
         except BossApiError as e:
             _err(str(e))
 
 
-def cmd_resume(encrypt_geek_id: str, encrypt_job_id: str) -> None:
+def cmd_resume(encrypt_geek_id: str, encrypt_job_id: str, security_id: str = "") -> None:
     cred = get_credential()
     if not cred:
         _err("未登录，请先运行 boss login")
@@ -106,43 +107,51 @@ def cmd_resume(encrypt_geek_id: str, encrypt_job_id: str) -> None:
             raw = c.get_boss_view_geek(
                 encrypt_geek_id=encrypt_geek_id,
                 encrypt_job_id=encrypt_job_id,
+                security_id=security_id,
             )
-            geek = raw.get("geekInfo", {})
+            gdi = raw.get("geekDetailInfo", {})
+            base = gdi.get("geekBaseInfo", {})
+            expect = gdi.get("anonymousGeekExpect", {}) or {}
+            work_list = gdi.get("geekWorkExpList", []) or []
+            edu_list = gdi.get("geekEduExpList", []) or []
+            proj_list = gdi.get("geekProjExpList", []) or []
+            skills_raw = gdi.get("blueGeekSkills", []) or []
+
             resume = {
                 "encryptGeekId": encrypt_geek_id,
-                "name": geek.get("name", ""),
-                "age": geek.get("age", ""),
-                "gender": geek.get("gender", ""),
-                "degree": geek.get("degreeName", ""),
-                "experience": geek.get("experienceName", ""),
-                "city": geek.get("cityName", ""),
-                "avatar": geek.get("avatar", ""),
-                "activeTime": geek.get("activeTimeDesc", ""),
-                "jobStatus": geek.get("jobStatusDesc", ""),
-                "expectPosition": geek.get("expectPosition", ""),
-                "expectSalary": geek.get("expectSalaryDesc", ""),
-                "expectCity": geek.get("expectCityName", ""),
-                "selfEvaluation": raw.get("selfEvaluation", {}).get("content", ""),
-                "skills": [s.get("name", "") for s in raw.get("skills", [])],
+                "name": base.get("name", ""),
+                "age": base.get("ageDesc", ""),
+                "gender": "男" if base.get("gender") == 0 else "女",
+                "degree": base.get("degreeCategory", ""),
+                "experience": base.get("workYearsDesc", base.get("workYearDesc", "")),
+                "city": expect.get("cityName", ""),
+                "avatar": base.get("large", base.get("tiny", "")),
+                "activeTime": base.get("activeTimeDesc", ""),
+                "jobStatus": base.get("applyStatusDesc", base.get("applyStatusContent", "")),
+                "expectPosition": expect.get("positionName", ""),
+                "expectSalary": expect.get("salaryDesc", ""),
+                "expectCity": expect.get("cityName", ""),
+                "selfEvaluation": base.get("userDescription", ""),
+                "skills": [s.get("name", "") for s in skills_raw if s.get("name")],
                 "workExperiences": [
                     {
                         "company": w.get("brandName", w.get("companyName", "")),
-                        "position": w.get("jobName", ""),
+                        "position": w.get("positionName", w.get("jobName", "")),
                         "startDate": w.get("startDate", ""),
-                        "endDate": w.get("endDate", ""),
-                        "description": w.get("jobContent", ""),
+                        "endDate": w.get("endDate", "至今"),
+                        "description": w.get("jobContent", w.get("description", "")),
                     }
-                    for w in raw.get("workExperiences", [])
+                    for w in work_list
                 ],
                 "educationExperiences": [
                     {
                         "school": e.get("schoolName", ""),
-                        "major": e.get("major", ""),
-                        "degree": e.get("degreeName", ""),
+                        "major": e.get("major", e.get("majorName", "")),
+                        "degree": e.get("degreeName", e.get("degreeCategory", "")),
                         "startDate": e.get("startDate", ""),
                         "endDate": e.get("endDate", ""),
                     }
-                    for e in raw.get("educationExperiences", [])
+                    for e in edu_list
                 ],
                 "projectExperiences": [
                     {
@@ -150,9 +159,9 @@ def cmd_resume(encrypt_geek_id: str, encrypt_job_id: str) -> None:
                         "role": p.get("projectRole", ""),
                         "startDate": p.get("startDate", ""),
                         "endDate": p.get("endDate", ""),
-                        "description": p.get("projectDesc", ""),
+                        "description": p.get("projectDesc", p.get("description", "")),
                     }
-                    for p in raw.get("projectExperiences", [])
+                    for p in proj_list
                 ],
             }
             _out({"ok": True, "data": resume})
@@ -204,6 +213,7 @@ def main() -> None:
     p_res = sub.add_parser("resume")
     p_res.add_argument("geek_id")
     p_res.add_argument("--job", required=True)
+    p_res.add_argument("--security-id", default="")
 
     p_search = sub.add_parser("search")
     p_search.add_argument("keyword")
@@ -218,7 +228,7 @@ def main() -> None:
     elif args.cmd == "candidates":
         cmd_candidates(enc_job_id=args.job, page=args.page)
     elif args.cmd == "resume":
-        cmd_resume(encrypt_geek_id=args.geek_id, encrypt_job_id=args.job)
+        cmd_resume(encrypt_geek_id=args.geek_id, encrypt_job_id=args.job, security_id=args.security_id)
     elif args.cmd == "search":
         cmd_search(keyword=args.keyword, city=args.city, page=args.page, enc_job_id=args.job)
     else:
